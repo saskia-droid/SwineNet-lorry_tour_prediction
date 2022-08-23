@@ -36,16 +36,10 @@ pointDistance <- function(p1, p2){
   return (sqrt((p1[1] - p2[1])^2 + (p1[2] - p2[2])^2))
 }
 
-#TVD <- read.csv("G:/VPHI/Epi/Projects/100_PigNetworkModeling_SNF (Duerr)/DatasetsAnalysis/Tour_prediction/fg/data_exploration/train_tvd_data_gps_pigcat_suisagtransports_agis_traders.csv")
 # import TVD that matched with traders data
-TVD <- read.csv("train_tvd_data_gps_pigcat_suisagtransports_agis_traders.csv", sep=",")
+path_to_TVD_file = "G:/VPHI/Epi/Projects/100_PigNetworkModeling_SNF (Duerr)/DatasetsAnalysis/Tour_prediction/fg/data_exploration/train_tvd_data_gps_pigcat_suisagtransports_agis_traders.csv"
+TVD <- read.csv(path_to_TVD_file, sep=",")
 TVD <- as.data.frame(TVD)
-
-# keep only transports of 2017
-#TVD <- TVD[TVD$year == 2017, ]
-
-# transports of 2018 and 2019
-#TVD <- TVD[(TVD$year == 2017 | TVD$year == 2018 | TVD$year == 2019), ]
 
 # select columns of interest
 TVD <- subset(TVD, select = c(v1, # id specific of the transport
@@ -88,16 +82,11 @@ col_names <- c("date",
                "dist_km_j",
                "t_freq_i",
                "t_freq_j",
-
                "same_trader_id",
-               #"same_pig_type",
                "same_tour",
-               #"same_notif_type",
-
                "relDiff_n_pigs",
                "relDiff_t_freq",
                "relDiff_dist_km",
-
                "dist_ss",
                "dist_sd",
                "dist_ds",
@@ -111,7 +100,7 @@ colnames(links) <- col_names
 
 TVD <- arrange(TVD, event_date)
 
-# take only the first 500 rows for testing
+# take only the first 100 rows for testing
 #TVD <- TVD[1:100,]
 
 dates <- seq(min(TVD$event_date), max(TVD$event_date), by = 1)
@@ -151,9 +140,7 @@ for (d in dates){
                        row2$t_freq,
 
                        same(row1$combined_trader_id, row2$combined_trader_id),
-                       #same(row1$pig_type, row2$pig_type),
                        same(row1$tourid, row2$tourid),
-                       #same(row1$notif_type, row2$notif_type),
 
                        relDiff(row1$n_pigs, row2$n_pigs),
                        relDiff(row1$t_freq, row2$t_freq),
@@ -175,8 +162,6 @@ for (d in dates){
       }
     }
   }
-
-  #links$route_similarity[links$route_similarity == 0] <- Inf
 }
 
 # remove NA

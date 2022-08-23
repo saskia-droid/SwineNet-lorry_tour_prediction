@@ -1,6 +1,5 @@
 
 # some helper functions
-# Saskia Perret-Gentil
 
 # partition function which do a train/test split, returning a list of two dataframes
 train_test_split <- function(dataset, train_size){
@@ -27,3 +26,5 @@ outersect <- function(x, y) {
   sort(c(x[!x%in%y],
          y[!y%in%x]))
 }
+
+
