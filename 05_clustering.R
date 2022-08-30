@@ -46,7 +46,8 @@ for (d in dates){
   # number of clusters k
   n_transports <- nrow(nodes)
   k <- round(calclutnumb$coefficients[[1]] + n_transports * calclutnumb$coefficients[[2]]) + 1
-    # k is the threshold of clusters. The line above corresponds to the equation of the linear model (a + x*b)
+    # k is the threshold of clusters. 
+    # The line above corresponds to the equation of the linear model (a + x*b)
     # perhaps I could find a better function than linear. 
   
   # start with each nodes its own cluster
@@ -63,8 +64,7 @@ for (d in dates){
     i_toKeep <- which(sapply(reals, function(y) id1 %in% y))
     
     if (i_toRemoved != i_toKeep & 
-        subsetD[row, 'same_tour'] ==1
-    ){
+        subsetD[row, 'same_tour'] == 1){
       # find where id1 is and append id2 to it 
       reals[[i_toKeep]] <- append(reals[[i_toKeep]], reals[[i_toRemoved]])
       
@@ -72,8 +72,6 @@ for (d in dates){
       reals[[i_toRemoved]] <- NULL; reals
     }
   } 
-  
-    
   
   for (row in 1:nrow(subsetD)){
     
@@ -85,11 +83,11 @@ for (d in dates){
     i_toKeep <- which(sapply(clusters, function(y) id1 %in% y))
     
     if (i_toRemoved != i_toKeep & 
-        (length(clusters[[i_toRemoved]]) + length(clusters[[i_toKeep]])) < 5 | #& 
-        (length(clusters[[i_toRemoved]])==1 | length(clusters[[i_toKeep]])==1) # THIS LINE IS NEW AND HAS TO BE TESTED
+        (length(clusters[[i_toRemoved]]) + length(clusters[[i_toKeep]])) < 5 | 
+        (length(clusters[[i_toRemoved]])==1 | length(clusters[[i_toKeep]])==1) 
         # -> 4 being the maximum number of transport which I find reasonable 
-        # to be part of the same tour
-        #testset20171205[row,'same_trader_id'] == 1
+        # to be part of the same tour 
+        # but if we only add one more transport to the tour, go ahead ;)
         ){
     # find where id1 is and append id2 to it 
     clusters[[i_toKeep]] <- append(clusters[[i_toKeep]], clusters[[i_toRemoved]])
@@ -153,13 +151,12 @@ clus_real_size_ratio
 # plot(PR_obj)
 
 F1 <- F1_Score(as.logical(predset$same_tour), as.logical(predset$pred), 
-               positive = TRUE); F1 # 0.5150894
+               positive = TRUE); F1 # 0.5668
 
 # Compute model prediction accuracy rate
-mean(as.logical(predset$same_tour) == as.logical(predset$pred)) # 0.9766712
+mean(as.logical(predset$same_tour) == as.logical(predset$pred)) # 0.980697
 
 # confusionMatrix
-library(caret)
 CM_gradient_boost <- confusionMatrix(as.factor(predset$pred),
                       as.factor(as.numeric(predset$same_tour)), positive = "1"); CM_gradient_boost
 

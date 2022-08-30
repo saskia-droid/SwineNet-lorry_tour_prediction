@@ -9,8 +9,7 @@ if(length(new.packages)) install.packages(new.packages, repos='http://cran.us.r-
 library(xgboost)
 library(MLmetrics)
 library(PRROC)
-
-setwd("G:/VPHI/Epi/Projects/100_PigNetworkModeling_SNF (Duerr)/DatasetsAnalysis/Tour_prediction/fg")
+library(caret)
 
 source("02_links_preprocess.R")
 
