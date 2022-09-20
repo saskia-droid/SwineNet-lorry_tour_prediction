@@ -19,19 +19,19 @@ set.seed(42)
 # load links data
 links <- readRDS("G:/VPHI/Epi/Projects/100_PigNetworkModeling_SNF (Duerr)/DatasetsAnalysis/Tour_prediction/fg/links.rds")
 
-# put same_tour at the end of dataframe
-links <- links %>% select(-same_tour, same_tour)
-
 # sort by date
 links <- links[order(links$date),] 
 
 min_date <- min(links$date); min_date # 16072
 as.Date(min_date, origin="1970-01-01") # "2014-01-02"
-max_date <- max(links$date); max_date # 18260
+max_date <- max(links$date); max_date # 18254
 as.Date(max_date, origin="1970-01-01") # "2019-12-24"
 
 # adding month variable
 links$month = as.factor(month(as.Date(links$date, origin="1970-01-01")))
+
+# put same_tour at the end of dataframe
+links <- links %>% select(-same_tour, same_tour)
 
 dates <- seq(from = min_date, to = max_date, by = 1)
 

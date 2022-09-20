@@ -29,7 +29,10 @@ for (d in dates){
 
   subsetD <- test_set[which(test_set$date == d),]
 
-  # sort by prob
+  # **sort by prob**  
+  # this is really important, because when doing the clustering, 
+  # we will first cluster transports which have the highest 'score' of 
+  # being in the same lorry tour
   subsetD <- subsetD[order(subsetD$prob, decreasing = TRUE),]
   
   # get the nodes
@@ -48,12 +51,13 @@ for (d in dates){
   k <- round(calclutnumb$coefficients[[1]] + n_transports * calclutnumb$coefficients[[2]]) + 1
     # k is the threshold of clusters. 
     # The line above corresponds to the equation of the linear model (a + x*b)
-    # perhaps I could find a better function than linear. 
+    # perhaps a different function than linear would fit better our data. 
   
   # start with each nodes its own cluster
   clusters <- as.list(nodes[[1]])
   reals <- as.list(nodes[[1]])
   
+  # for creating the real list of clusters per day 
   for (row in 1:nrow(subsetD)){
   
     id1 <- subsetD[row,'v1_i']; id1 # semicolon and id1 is to print id1
@@ -65,14 +69,20 @@ for (d in dates){
     
     if (i_toRemoved != i_toKeep & 
         subsetD[row, 'same_tour'] == 1){
-      # find where id1 is and append id2 to it 
+      # add id2 (and every id from it previous cluster) to 
+      # the cluster where id1 is
       reals[[i_toKeep]] <- append(reals[[i_toKeep]], reals[[i_toRemoved]])
       
-      # remove id2 from clusters
+      # remove cluster where id2 was from the list of clusters (here: reals)
       reals[[i_toRemoved]] <- NULL; reals
     }
   } 
   
+  # increase the number of real clusters (real_size) 
+  # by the number of real clusters of the day
+  real_size = real_size+length(reals)
+  
+  # for creating the assumed cluster per day  
   for (row in 1:nrow(subsetD)){
     
     id1 <- subsetD[row,'v1_i']; id1 # semicolon and id1 is to print id1
@@ -88,13 +98,14 @@ for (d in dates){
         # -> 4 being the maximum number of transport which I find reasonable 
         # to be part of the same tour 
         # but if we only add one more transport to the tour, go ahead ;)
-        ){
-    # find where id1 is and append id2 to it 
-    clusters[[i_toKeep]] <- append(clusters[[i_toKeep]], clusters[[i_toRemoved]])
+        ){ 
+      # add id2 (and every id from it previous cluster) to 
+      # the cluster where id1 is
+      clusters[[i_toKeep]] <- append(clusters[[i_toKeep]], clusters[[i_toRemoved]])
     
-    # remove id2 from clusters
-    clusters[[i_toRemoved]] <- NULL; clusters
-    }
+      # remove cluster where id2 was from the list of clusters 
+      clusters[[i_toRemoved]] <- NULL; clusters 
+      }
    
     # break when k is reached
     if (length(clusters) <= k){
@@ -103,8 +114,12 @@ for (d in dates){
     
   }
   
-  # check the mean number of transports by tour
+  # increase the number of predicted clusters (clus_size) 
+  # by the number of predicted clusters of the day
+  clus_size = clus_size+length(clusters)
   
+  # assign the value 1 in pred when the two transports were predicted 
+  # as belonging to the same tour (cluster)
   for (row in 1:nrow(subsetD)){
     
     idi <- subsetD[row,'v1_i']; id1
@@ -118,49 +133,46 @@ for (d in dates){
   }
   
   predset <- rbind(predset, subsetD)
-  clus_size = clus_size+length(clusters)
-  real_size = real_size+length(reals)
   
   # calculate Jaccard index to evaluate clustering performance
-  for (i in 1:length(clusters)) {
-    for (j in 1:length(reals))   {
-      if (length(intersect(as.vector(clusters[[i]]),as.vector(reals[[j]]))) > 0) {
-        j = (length(intersect(as.vector(clusters[[i]]),as.vector(reals[[j]])))) / (length(union(as.vector(clusters[[i]]),as.vector(reals[[j]]))))
+  for (i in 1:length(clusters)){
+    for (j in 1:length(reals)){
+      # when we find a predicted cluster and a real one that 
+      # share at least one transport 
+      # the jaccard indice is calculated 
+      if (length(intersect(as.vector(clusters[[i]]),as.vector(reals[[j]]))) > 0){
+        j = (length(intersect(as.vector(clusters[[i]]),as.vector(reals[[j]])))) / 
+          (length(union(as.vector(clusters[[i]]),as.vector(reals[[j]]))))
         jaccard = jaccard + j
         counter = counter + 1
       }
     }
   }
-  
-}
+} # end of the master for-loop which go through all days
 
-jaccard_final = jaccard/counter
-jaccard_final
-clus_real_size_ratio = clus_size/real_size
-clus_real_size_ratio
+# mean jaccard index over all clusters from all days
+jaccard_final = jaccard/counter; jaccard_final # 0.6062657
 
+clus_real_size_ratio = clus_size/real_size; clus_real_size_ratio # 1.010613 
+# with this method, 
+# there are a little bit more predicted clusters than real ones, 
+# but as it is close to one, this is pretty good 
 
 # check different metrics
 
-# table(predset$same_tour, predset$pred)
-# table(predset$same_tour)
-
-# plot precision-recall curve
-# PR_obj <- pr.curve(scores.class0 = predset$pred, 
-#                    weights.class0 = predset$same_tour, curve = TRUE)
-# plot(PR_obj)
-
 F1 <- F1_Score(as.logical(predset$same_tour), as.logical(predset$pred), 
                positive = TRUE); F1 # 0.5668
-
-# Compute model prediction accuracy rate
-mean(as.logical(predset$same_tour) == as.logical(predset$pred)) # 0.980697
 
 # confusionMatrix
 CM_gradient_boost <- confusionMatrix(as.factor(predset$pred),
                       as.factor(as.numeric(predset$same_tour)), positive = "1"); CM_gradient_boost
 
+#table(predset$same_tour, predset$pred)
+# compute model prediction accuracy rate:
+#mean(as.logical(predset$same_tour) == as.logical(predset$pred)) # 0.980697
 
+# todo: (?) check the mean number of transports by tour
+# todo: understand what is the following
 
 reals = clusters
 jaccard=0
@@ -175,10 +187,8 @@ for (i in 1:length(clusters)) {
   }
 }
 
-
 clusters <- as.list(nodes[[1]])
 reals <- as.list(nodes[[1]])
-
 
 for (row in 1:nrow(subsetD)){
   

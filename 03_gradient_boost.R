@@ -48,7 +48,7 @@ test_set$prob <- predict(m01, dtest)
 ### testing different threshold for the "probability" 
 
 # compute model prediction accuracy rate
-mean(as.logical(test_set$same_tour) == (test_set$prob > 0.5)) # 0.979501
+mean(as.logical(test_set$same_tour) == (test_set$prob > 0.5)) # 0.9215152 (0.979501) 
 
 # confusionMatrix
 table(as.logical(test_set$same_tour), test_set$prob > 0.5)
@@ -58,14 +58,14 @@ table(as.logical(test_set$same_tour), test_set$prob > 0.95)
 
 
 F1 <- F1_Score(as.logical(test_set$same_tour), test_set$prob > 0.5,
-               positive = TRUE); F1 # 0.4950959
+               positive = TRUE); F1 # 0.3576235 (0.4950959)
 F1 <- F1_Score(as.logical(test_set$same_tour), test_set$prob > 0.25,
-               positive = TRUE); F1 # 0.5546891
+               positive = TRUE); F1 # 0.3175839 (0.5546891)
 F1 <- F1_Score(as.logical(test_set$same_tour), test_set$prob > 0.75,
-               positive = TRUE); F1 # 0.4950959
+               positive = TRUE); F1 # 0.5353249 (0.4950959)
 
 #confusion matrix
-factor_data  <- as.factor(as.numeric((test_set$same_tour))) # ? 
+factor_data  <- as.factor(as.numeric((test_set$same_tour))) 
 factor_pred  <- ifelse(test_set$prob<0.91,0,1)
 factor_pred  <- as.factor(factor_pred)
 confusionMatrix(factor_pred,factor_data, positive = "1")
