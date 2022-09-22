@@ -22,7 +22,6 @@ table(testset_d1$same_tour)
 table(testset_d1$pred)
 #testset_d1 <- subset(testset_d1, (same_tour == 1 | pred == 1))
 
-
 testset_d2 <- predset[which(predset$date == dates_5[2]),]
 table(testset_d2$same_tour)
 table(testset_d2$pred)

@@ -150,15 +150,15 @@ for (d in dates){
   }
 } # end of the master for-loop which go through all days
 
+### evaluation of the proposed methods
+
 # mean jaccard index over all clusters from all days
 jaccard_final = jaccard/counter; jaccard_final # 0.6062657
 
 clus_real_size_ratio = clus_size/real_size; clus_real_size_ratio # 1.010613 
 # with this method, 
 # there are a little bit more predicted clusters than real ones, 
-# but as it is close to one, this is pretty good 
-
-# check different metrics
+# but the fact that it is close to one is pretty good 
 
 F1 <- F1_Score(as.logical(predset$same_tour), as.logical(predset$pred), 
                positive = TRUE); F1 # 0.5668
@@ -170,47 +170,3 @@ CM_gradient_boost <- confusionMatrix(as.factor(predset$pred),
 #table(predset$same_tour, predset$pred)
 # compute model prediction accuracy rate:
 #mean(as.logical(predset$same_tour) == as.logical(predset$pred)) # 0.980697
-
-# todo: (?) check the mean number of transports by tour
-# todo: understand what is the following
-
-reals = clusters
-jaccard=0
-counter=0
-for (i in 1:length(clusters)) {
-  for (j in 1:length(reals))   {
-    if (length(intersect(as.vector(clusters[[i]]),as.vector(clusters[[j]]))) > 0) {
-      j = (length(intersect(as.vector(clusters[[i]]),as.vector(clusters[[j]])))) / (length(union(as.vector(clusters[[i]]),as.vector(clusters[[j]]))))
-      jaccard = jaccard + j
-      counter = counter + 1
-    }
-  }
-}
-
-clusters <- as.list(nodes[[1]])
-reals <- as.list(nodes[[1]])
-
-for (row in 1:nrow(subsetD)){
-  
-  id1 <- subsetD[row,'v1_i']; id1 # semicolon and id1 is to print id1
-  id2 <- subsetD[row, 'v1_j']; id2
-  
-  i_toRemoved <- which(sapply(reals, function(y) id2 %in% y)); i_toRemoved
-  
-  i_toKeep <- which(sapply(reals, function(y) id1 %in% y))
-  
-  if (i_toRemoved != i_toKeep & 
-     subsetD[row, 'same_tour'] ==1
-  ){
-    # find where id1 is and append id2 to it 
-    reals[[i_toKeep]] <- append(reals[[i_toKeep]], reals[[i_toRemoved]])
-    
-    # remove id2 from clusters
-    reals[[i_toRemoved]] <- NULL; reals
-  }
-  
-}
-
-
-
-
