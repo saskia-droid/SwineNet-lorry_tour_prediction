@@ -58,7 +58,10 @@ TVD <- subset(TVD, select = c(v1, # id specific of the transport
                               dist_km,
 			                        notif_type,
 			                        farm_type_source,
-			                        farm_type_dest))
+			                        farm_type_dest,
+                              prod_type_source,
+			                        prod_type_dest,
+			                        prod_to_prod))
 
 # date variable - change factor to date
 TVD$event_date <- as.Date(TVD$event_date, format = "%Y-%m-%d")
@@ -76,6 +79,12 @@ col_names <- c("date",
                "farm_type_source_j",
                "farm_type_dest_i",
                "farm_type_dest_j",
+               "prod_type_source_i",
+               "prod_type_source_j",
+               "prod_type_dest_i",
+               "prod_type_dest_j",
+               "prod_to_prod_i",
+               "prod_to_prod_j",
                "n_pigs_i",
                "n_pigs_j",
                "dist_km_i",
@@ -105,8 +114,6 @@ TVD <- arrange(TVD, event_date)
 
 dates <- seq(min(TVD$event_date), max(TVD$event_date), by = 1)
 
-# todo: ask F.: we go from 14 to 14 jours?
-
 n = Sys.getenv('SLURM_ARRAY_TASK_ID')
 n = as.numeric(n)
 m = n+13
@@ -132,6 +139,12 @@ for (d in dates){
                        row2$farm_type_source,
                        row1$farm_type_dest,
                        row2$farm_type_dest,
+                       row1$prod_type_source,
+                       row2$prod_type_source,
+                       row1$prod_type_dest,
+                       row2$prod_type_dest,
+                       row1$prod_to_prod,
+                       row2$prod_to_prod,
                        row1$n_pigs,
                        row2$n_pigs,
                        row1$dist_km,

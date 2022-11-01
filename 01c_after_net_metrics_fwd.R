@@ -7,8 +7,8 @@ if(length(new.packages)) install.packages(new.packages, repos='http://cran.us.r-
 library(dplyr)
 library(rio)
 
-setwd("G:/VPHI/Epi/Projects/100_PigNetworkModeling_SNF (Duerr)/DatasetsAnalysis/Tour_prediction/fg/")
-files <- list.files(path="01_scripts_running_on_UBELIX/link_files", pattern="links*", full.names=TRUE, recursive=FALSE)
+setwd("G:/VPHI/Epi/Projects/100_PigNetworkModeling_SNF (Duerr)/DatasetsAnalysis/Tour_prediction/fg/SwineNet-lorry_tour_prediction-files")
+files <- list.files(path="link_files", pattern="links*", full.names=TRUE, recursive=FALSE)
 list  <- lapply(files, function(x) {
   t <- import(x) # load file
 })

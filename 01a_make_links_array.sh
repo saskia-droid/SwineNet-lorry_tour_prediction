@@ -15,4 +15,4 @@
 
 module load R
 
-R CMD BATCH --no-save --no-restore create_links_array.R script_${SLURM_ARRAY_TASK_ID}.R
+R CMD BATCH --no-save --no-restore 01b_create_links_array.R script_${SLURM_ARRAY_TASK_ID}.R

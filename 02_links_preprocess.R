@@ -17,10 +17,10 @@ source("some_functions.R")
 set.seed(42)
 
 # load links data
-links <- readRDS("G:/VPHI/Epi/Projects/100_PigNetworkModeling_SNF (Duerr)/DatasetsAnalysis/Tour_prediction/fg/links.rds")
+links <- readRDS("G:/VPHI/Epi/Projects/100_PigNetworkModeling_SNF (Duerr)/DatasetsAnalysis/Tour_prediction/fg/SwineNet-lorry_tour_prediction-files/links.rds")
 
 # sort by date
-links <- links[order(links$date),] 
+links <- links[order(links$date),]
 
 min_date <- min(links$date); min_date # 16072
 as.Date(min_date, origin="1970-01-01") # "2014-01-02"
@@ -35,9 +35,9 @@ links <- links %>% select(-same_tour, same_tour)
 
 dates <- seq(from = min_date, to = max_date, by = 1)
 
-# sample 80% of the dates for the training set,  
-# the remaining dates will be for testing 
-draw_train <- sample(dates,  round(length(dates)*0.8)) 
+# sample 80% of the dates for the training set,
+# the remaining dates will be for testing
+draw_train <- sample(dates,  round(length(dates)*0.8))
 draw_test  <- outersect(dates,draw_train)
 
 train_set <- links[which(links$date %in% draw_train),]
@@ -50,5 +50,3 @@ table(train_set$same_tour)
 # balance train set - maybe not necessary
 train_set <- drop_for_bal(train_set, 0.95, "same_tour", 0) #0.977
 table(train_set$same_tour)
-
-
