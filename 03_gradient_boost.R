@@ -64,6 +64,8 @@ F1 <- F1_Score(as.logical(test_set$same_tour), test_set$prob > 0.25,
                positive = TRUE); F1 # 0.3045455
 F1 <- F1_Score(as.logical(test_set$same_tour), test_set$prob > 0.75,
                positive = TRUE); F1 # 0.3849152
+F1 <- F1_Score(as.logical(test_set$same_tour), test_set$prob > 0.95, 
+               positive = TRUE); F1 # 0.5836237
 
 #confusion matrix
 factor_data  <- as.factor(as.numeric((test_set$same_tour))) 
@@ -73,5 +75,6 @@ confusionMatrix(factor_pred,factor_data, positive = "1")
 
 # variable importance plot
 imp = xgb.importance(model = m01)
-p <- xgb.plot.importance(imp, #main="Feature importance", 
-                         xlim=c(0,1))
+p <- xgb.plot.importance(imp, #top_n = 5, #main="Feature importance", 
+                         #cex=1.3,
+                         xlim=c(0,0.8))
