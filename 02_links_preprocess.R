@@ -48,5 +48,5 @@ table(test_set$same_tour)
 table(train_set$same_tour)
 
 # balance train set - maybe not necessary
-train_set <- drop_for_bal(train_set, 0.95, "same_tour", 0) #0.977
+train_set <- drop_for_bal(train_set, 0.977, "same_tour", 0) #0.95
 table(train_set$same_tour)

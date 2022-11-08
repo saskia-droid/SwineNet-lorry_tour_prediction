@@ -152,7 +152,7 @@ for (d in dates){
 ### evaluation of the proposed methods
 
 # mean jaccard index over all clusters from all days
-jaccard_final = jaccard/counter; jaccard_final # 0.6062657
+jaccard_final = jaccard/counter; jaccard_final # 0.6052732
 
 clus_real_size_ratio = clus_size/real_size; clus_real_size_ratio # 1.010613
 # with this method,
@@ -160,12 +160,12 @@ clus_real_size_ratio = clus_size/real_size; clus_real_size_ratio # 1.010613
 # but the fact that it is close to one is pretty good
 
 F1 <- F1_Score(as.logical(predset$same_tour), as.logical(predset$pred),
-               positive = TRUE); F1 # 0.5668
+               positive = TRUE); F1 # 0.5676647
 
 # confusionMatrix
 CM_gradient_boost <- confusionMatrix(as.factor(predset$pred),
                       as.factor(as.numeric(predset$same_tour)), positive = "1"); CM_gradient_boost
 
-#table(predset$same_tour, predset$pred)
+table(predset$same_tour, predset$pred)
 # compute model prediction accuracy rate:
-#mean(as.logical(predset$same_tour) == as.logical(predset$pred)) # 0.980697
+mean(as.logical(predset$same_tour) == as.logical(predset$pred)) # 0.9807644

@@ -10,6 +10,7 @@ library(xgboost)
 library(MLmetrics)
 library(PRROC)
 library(caret)
+library(ggplot2)
 
 source("02_links_preprocess.R")
 
@@ -30,7 +31,7 @@ watchlist <- list(train = dtrain, test = dtest)
 
 m01 <- xgb.train(data = dtrain,
                  max.depth = 7, # max. number of splits per tree
-                 nrounds = 40, 
+                 nrounds = 50,
                  # max. n. of trees (where each following tree is an improved 
                  # tree for those data that were not predicted correctly)
                  eval.metric = "aucpr",
@@ -48,7 +49,7 @@ test_set$prob <- predict(m01, dtest)
 ### testing different threshold for the "probability" 
 
 # compute model prediction accuracy rate
-mean(as.logical(test_set$same_tour) == (test_set$prob > 0.5)) # 0.9215152 (0.979501) 
+mean(as.logical(test_set$same_tour) == (test_set$prob > 0.5)) # 0.9073098
 
 # confusionMatrix
 table(as.logical(test_set$same_tour), test_set$prob > 0.5)
@@ -58,11 +59,11 @@ table(as.logical(test_set$same_tour), test_set$prob > 0.95)
 
 
 F1 <- F1_Score(as.logical(test_set$same_tour), test_set$prob > 0.5,
-               positive = TRUE); F1 # 0.3576235 (0.4950959)
+               positive = TRUE); F1 # 0.323843
 F1 <- F1_Score(as.logical(test_set$same_tour), test_set$prob > 0.25,
-               positive = TRUE); F1 # 0.3175839 (0.5546891)
+               positive = TRUE); F1 # 0.3045455
 F1 <- F1_Score(as.logical(test_set$same_tour), test_set$prob > 0.75,
-               positive = TRUE); F1 # 0.5353249 (0.4950959)
+               positive = TRUE); F1 # 0.3849152
 
 #confusion matrix
 factor_data  <- as.factor(as.numeric((test_set$same_tour))) 
@@ -72,6 +73,5 @@ confusionMatrix(factor_pred,factor_data, positive = "1")
 
 # variable importance plot
 imp = xgb.importance(model = m01)
-xgb.plot.importance(imp)
-
-
+p <- xgb.plot.importance(imp, #main="Feature importance", 
+                         xlim=c(0,1))
