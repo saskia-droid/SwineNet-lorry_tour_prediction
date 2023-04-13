@@ -1,0 +1,842 @@
+---
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+#Tour Predictions - New version#
+
+*By:Laura Cunha Silva - VPHI 2022*
+
+##June 2022## ##Updated October 2022## ##Revised December 2022 /January
+2023##
+
+*Import working dataset = dataset without the predictions*
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(leaflet)
+library(readxl)
+library(ggplot2)
+library(viridis)
+library(hrbrthemes)
+library(rio)
+
+#Add Francesco's df 
+setwd("G:/VPHI//Epi/Projects/100_PigNetworkModeling_SNF (Duerr)/DatasetsAnalysis/Tour_prediction/Laura")
+#setwd("G:/Epi/Projects/100_PigNetworkModeling_SNF (Duerr)/DatasetsAnalysis/Tour_prediction/Laura")#work pc 
+
+#tvd_data <- import("G:/VPHI/Epi/Projects/100_PigNetworkModeling_SNF (Duerr)/Datasets/TVD/tvd_data_gps_pigcat_suisagtransports_agis.dta")
+tvd_data <- import("G:/VPHI/Epi/Projects/100_PigNetworkModeling_SNF (Duerr)/DatasetsAnalysis/Tour_prediction/Laura/tours.dta")
+#tvd_data <- import("G:/Epi/Projects/100_PigNetworkModeling_SNF (Duerr)/DatasetsAnalysis/Tour_prediction/Laura/tours.dta")#work pc 
+
+#Save a copy of the original dataset 
+tvd_data_original <- tvd_data #backup
+
+```
+
+*Dataset basic cleaning & description*
+
+```{r}
+#Select only year 2019
+tvd_data$year <- as.factor(tvd_data$year)
+summary(as.factor(tvd_data$year)) #data from 2014 until 2019
+ls(tvd_data)
+
+tvd_data <- tvd_data %>% 
+  filter(year == "2019")
+
+summary(as.factor(tvd_data$farm_type_source)) 
+#AFP    Kern    Mast     Vermehr   Zucht 
+#4253   1050    8607     920       9045
+
+summary(as.factor(tvd_data$farm_type_dest)) 
+#AFP        Mast   Schlacht_gr  Schlacht_kl     Vermehr       Zucht 
+#1455       11068       10013         367         138         834
+
+summary(as.factor(tvd_data$notif_type))
+#1       2 
+#13498 10377
+
+summary(as.factor(tvd_data$type_to_type)) #15*5-4 = 71 Different combinations of imports/exports. HOWEVER, these descriptions are not detailed using the more broad farm type designations, meaning the actual number of unique transports is smaller 
+
+#Notes = no information in this datasets concerning the biossecurtiy levels of the farms 
+
+#THERE ARE 23695 export/import happening throughout the year 2019 
+length(unique(tvd_data$tvd_source)) #1332 different farms are source farms (sending farms)
+length(unique(tvd_data$tvd_dest)) #1351 are destination farms (receiving farms)
+length(unique(tvd_data$day_of_year)) #303 days
+
+length(unique(tvd_data$tourid))#There are a total of 10432 tours made in the year 2019
+
+
+```
+
+###Information on the dataset###
+
+*note well (translations) :* AFP = piglet production ring Mast =
+Fattener Zucht = Breeder Schlacht_gr = Big slaughterhouse Schlacht_kl =
+Small slaughterhouse Vermhr = multiplier herd
+
+IMPORTANT TO DO: Kern = nucleous herds need to be separated from the
+other farms since they have the highest SGD status
+
+*Francesco's SGD status classification:* -AR-1 = Kern = 1 -AR-2 = Vermhr
+= 2 -A = all the rest = 3
+
+Vet tours order: AR1-\>AR2-\>A --\> slaughterhouse
+
+*PRODUCTION TYPE:* "Kern" \~ 1 "Vermhr" \~2 "Züchter" (Breeder) \~3,
+"Ferkelaufzüchter" (Piglet raiser) = here is labeled as "AFP" \~ 4,\
+"Mäster" (Fatteners) \~5, Slaughterhouses \~6
+
+*Notification types:* 1= farm to farm 2= farm to slaughterhouse
+
+```{r}
+#Separate the kern farms  
+#Kern farms are always source farms 
+
+#Create a new variable that groups and classifies according to the SGD status of the farms = remove since it is redundant 
+#tvd_data$SGD_status_source = ifelse(tvd_data$farm_type_source%in%"Kern",1,
+                           #ifelse(tvd_data$farm_type_source%in%"Vermehr",2,3))
+
+#summary(as.factor(tvd_data$SGD_status_source))
+# 1       2      3 
+#1050   920    21905 
+                                  
+#tvd_data$SGD_status_dest = ifelse(tvd_data$farm_type_dest%in%"Kern",1,
+                           #ifelse(tvd_data$farm_type_dest%in%"Vermehr",2,3))
+
+#summary(as.factor(tvd_data$SGD_status_dest))
+#2     3 
+#138  23737   ----> No import/exports from kern to kern 
+
+#Create a new variable that groups and classifies according to the Production type of the farms
+tvd_data$production_type_source = ifelse(tvd_data$farm_type_source%in%"Kern",1,
+                           ifelse(tvd_data$farm_type_source%in%"Vermehr",2,
+                                  ifelse(tvd_data$farm_type_source%in%"Zucht",3,
+                                         ifelse(tvd_data$farm_type_source%in%"AFP",4,
+                                                ifelse(tvd_data$farm_type_source%in%"Mast",5,6))))) #6 are the slaughterhouses (doesn't matter if big or small)
+
+summary(as.factor(tvd_data$production_type_source)) 
+# 1    2    3    4    5 
+#1050  920 9045 4253 8607 
+
+tvd_data$production_type_dest = ifelse(tvd_data$farm_type_dest%in%"Kern",1,
+                           ifelse(tvd_data$farm_type_dest%in%"Vermehr",2,
+                                  ifelse(tvd_data$farm_type_dest%in%"Zucht",3,
+                                         ifelse(tvd_data$farm_type_dest%in%"AFP",4,
+                                                ifelse(tvd_data$farm_type_dest%in%"Mast",5,6)))))
+
+summary(as.factor(tvd_data$production_type_dest))
+#2     3     4     5     6 
+#138  834  1455  11068 10380 
+
+
+```
+
+##Order the farms as done by Kathleen = order the visits according to
+the recorded timestamps###
+
+Code source = Kathleen's github
+
+c_plannedarrivaltime = pick up time =\> load_time
+c_plannedarrivaltimeblad = delivery time =\> unload_time date =\>
+event_date
+
+```{r}
+#First rename variables in order to match Kathleen's
+tvd_data <- rename(tvd_data, load_time = c_plannedarrivaltime)
+tvd_data <-rename(tvd_data, unload_time = c_plannedarrivaltimeablad)
+tvd_data <-rename(tvd_data, event_date = date)
+
+class(tvd_data$event_date)
+
+tvd_data$event_date <- as.character(tvd_data$event_date)
+```
+
+##What I realized is that Kathleen's code is not exactly what we
+want - Kathleen updated the code in March 2023. In order to try to find how many deterministic tours we have in 2019 we
+must first ID how many tours have more than one transport. Meaning, we
+will ID the number of tours that only have one transport## 
+
+```{r}
+#Eliminate irrelevant variables in our dataset
+tvd_data$language_dest <- NULL
+tvd_data$language_source <- NULL
+tvd_data$event_date <- NULL
+tvd_data$pig_type <- NULL 
+tvd_data$type_to_type <- NULL 
+tvd_data$year <- NULL 
+tvd_data$month <- NULL 
+tvd_data$week <- NULL
+tvd_data$farm_type_source <- NULL 
+tvd_data$farm_type_dest <- NULL 
+
+class(tvd_data$load_time)
+class(tvd_data$unload_time)
+
+#Let's uncomplicate load and unload times since we already know the day of the year they are happening on
+tvd_data$load_time <- gsub('[T]', ' ', tvd_data$load_time)
+tvd_data$unload_time <- gsub('[T]', ' ', tvd_data$unload_time)
+
+tvd_data$load_time<- strptime(tvd_data$load_time,"%Y-%m-%d %H:%M:%S",tz = "UTC")
+tvd_data$unload_time<- strptime(tvd_data$unload_time,"%Y-%m-%d %H:%M:%S",tz = "UTC")
+
+#Tidy up the dataset ##
+#We have DUPLICATES IN THE DATA (eg tourID T-004876) I also confirmed in the original dataset before any transformations were done that these duplicates are absolute 
+#How many? How many times do these duplicates repeat themselves? 
+names(tvd_data)
+
+tvd_data <- tvd_data %>% group_by(day_of_year,tourid,load_time, unload_time,tvd_source,tvd_dest,production_type_source,production_type_dest,notif_type,n_pigs,dist_km,seq_nr,latid_est,longid_est,latis_est,longis_est) %>% 
+  mutate(Repeats = row_number()-1)
+
+summary(as.factor(tvd_data$Repeats)) #we have 180 duplicates
+
+#Lets remove the duplicates and the repeats variable 
+
+tvd_data <- tvd_data %>% 
+  filter(Repeats == 0) #eliminate the duplicates 
+
+tvd_data$Repeats <- NULL #eliminate the variable 
+
+
+tvd_data <- tvd_data[,c("day_of_year","tourid","tvd_source","tvd_dest","load_time", "unload_time","production_type_source","production_type_dest","notif_type","n_pigs","dist_km","seq_nr", "latid_est","longid_est","latis_est","longis_est")]
+
+#######Lets remove the single transport farms from the dataset as they do not require any ordering ######
+
+#How many tours only have one transport (meaning only observation per tour id)? 
+singlefarm_tours <- tvd_data %>% 
+  group_by(day_of_year,tourid) %>% 
+  dplyr::mutate(num_dups = n()) %>% #tells you how many times that particular combo is duplicated = how many tours only have one observation = tours with only one transport
+  filter(num_dups == "1") %>%
+  ungroup() %>% 
+  arrange(day_of_year,tourid,production_type_source,production_type_dest)
+
+length(unique(singlefarm_tours$tourid))#We have 4312 single transport tours ~ 41.33% of all tours only do one transport 
+
+#How many of these transports are in between farms and how many are from a farm directly to the slaughterhouse?
+singlefarm_tours_farmtofarm <- singlefarm_tours %>% 
+  filter(notif_type == "1") %>%
+  arrange(day_of_year,tourid,production_type_source,production_type_dest)
+
+length(unique(singlefarm_tours_farmtofarm$tourid)) #2653 tours with just one transport are in between two different farms ~  25.43% of all tours are single transport between two farms 
+
+singlefarm_tours_slaughter <- singlefarm_tours %>% 
+  filter(notif_type == "2") %>%
+  arrange(day_of_year,tourid,production_type_source,production_type_dest)
+
+length(unique(singlefarm_tours_slaughter$tourid)) #1659 tours with just one transport are in between two different farms ~  15.62% of all tours are single transport from one farm to the slaughterhouse
+
+#########################################################################################################
+tvd_data <- tvd_data %>% 
+  group_by(day_of_year,tourid) %>% 
+  arrange(day_of_year,tourid)
+```
+
+##Explore the tours with more than one transport##
+
+```{r}
+#Lets remove the single tour farms from the dataset
+work_data <- tvd_data %>% 
+  group_by(day_of_year,tourid) %>% 
+  dplyr::mutate(num_dups = n()) %>% #tells you how many times that particular combo is duplicated = how many tours only have one observation = tours with only one transport
+  filter(num_dups > "1") %>%
+  ungroup() %>% 
+  arrange(day_of_year,tourid)
+
+#How many tours require work (deterministic tours + complex)? 
+length(unique(work_data$tourid)) #6120 tours ~ 58.67% of all tours are not single transport tours 
+
+work_data_original <- work_data
+
+```
+
+##ID each tour's destination so this info is not lost and we
+modify further the dataset##
+
+```{r}
+work_data <-  work_data %>% 
+  group_by(day_of_year,tourid,tvd_dest) %>% #because we know that sometimes the dest is the same to several sources 
+  mutate(destination = tvd_dest)
+
+work_data <- work_data %>% 
+  ungroup()
+
+work_data <- work_data %>% 
+  group_by(day_of_year,tourid)
+```
+
+##Examine whether we have destinations with the same or higher status
+than the sources##
+
+```{r}
+val_destsource <- work_data %>% group_by(day_of_year,tourid, destination) %>% 
+  filter(production_type_source > production_type_dest) #44 sources have higher status than destinations 
+
+val_destsource2 <- work_data %>% group_by(day_of_year,tourid,destination) %>% 
+  filter(production_type_source == production_type_dest) #1368 sources have the same status than destinations 
+
+```
+
+##Order the work data = all tours with more than one transport,
+according to the time of their visit##
+
+```{r}
+#We need to change the way our dataset is organized since we are not interested in the listed destination and sources, we want to determine the sequence of the visits # 
+tvd_destinations <- work_data %>% 
+  select(day_of_year,tourid,tvd_dest,destination,unload_time,production_type_dest,longid_est,latid_est,dist_km,seq_nr,n_pigs,notif_type)
+
+tvd_destinations$class <- "destination"
+
+tvd_destinations <- rename(tvd_destinations, TVD=tvd_dest)
+tvd_destinations <- rename(tvd_destinations, production_type=production_type_dest)
+tvd_destinations <- rename(tvd_destinations, longitude=longid_est)
+tvd_destinations <- rename(tvd_destinations, latitude=latid_est)
+tvd_destinations <- rename(tvd_destinations, time=unload_time)
+
+
+tvd_sources <- work_data %>% 
+  select(day_of_year,tourid,tvd_source,destination,load_time,production_type_source,longis_est,latis_est,dist_km,seq_nr,n_pigs,notif_type)
+
+tvd_sources$class <- "source"
+
+tvd_sources <- rename(tvd_sources, TVD=tvd_source)
+tvd_sources <- rename(tvd_sources, production_type=production_type_source)
+tvd_sources <- rename(tvd_sources, longitude=longis_est)
+tvd_sources <- rename(tvd_sources, latitude=latis_est)
+tvd_sources <- rename(tvd_sources, time=load_time)
+
+work_tvd_data <-  rbind(tvd_destinations,tvd_sources)
+
+work_tvd_data <- work_tvd_data %>% 
+  group_by(day_of_year,tourid) %>% 
+  arrange(day_of_year,tourid)
+
+#We have duplicates which is expected = they come from the original dataset where we had previously noted that we had transports that shared destinations and sources. Lets remove these duplicates as they are unnecessary 
+work_tvd_data <- work_tvd_data %>% group_by(day_of_year,tourid,time,TVD,production_type,notif_type,n_pigs,seq_nr,latitude,longitude,class) %>% #dist_km is not considered since it no longer applies
+  mutate(Repeats = row_number()-1)
+
+summary(as.factor(work_tvd_data$Repeats)) #we have 50 duplicates
+
+#Lets remove the duplicates and the Repeats variable 
+
+work_tvd_data <- work_tvd_data %>% 
+  filter(Repeats == 0) #eliminate the duplicates 
+
+work_tvd_data$Repeats <- NULL 
+
+library(lubridate)
+
+work_tvd_data <- work_tvd_data %>% 
+  group_by(day_of_year,tourid) %>% 
+  mutate(sequence_time = order(time)) %>% #decreasing time = means time is from earlier to later 
+  arrange(day_of_year,tourid,sequence_time)
+```
+
+##We have observations with the same exact values in their rows but that
+simply differ in the nr_seq. When that is the case we want to make sure
+R attributes the same number to the seq_time##
+
+```{r}
+work_tvd_data <- work_tvd_data %>% 
+  group_by(day_of_year,tourid) %>% 
+  mutate(sequence_time = order(time)) %>% #decreasing time = means time is from earlier to later 
+  arrange(day_of_year,tourid,sequence_time)
+
+#We have farms that where unloading happens at the exact same time but have two difference seq_nr = although there maybe different numbers of pigs being unloaded we want to have the same seq_time value for these observations so that we know that the unloading happened at the same time  
+
+
+#So, when we have on the same tour, a farm that has two rows and that is visited at the same exact time both times the seq_time should be the same number 
+work_tvd_data <- work_tvd_data%>%
+  group_by(tourid,TVD,time) %>% mutate(across(starts_with('sequence_time'), ~min(.)))
+
+
+```
+
+##Predict the tours' sequence according to our pre-defined
+rules (SGD,production type,distance) and then compare to the
+time-defined sequence of the tours
+Some descriptive analysis on the time sequenced tours and the recorded
+sequence tours in order to find possible shared factors##
+
+```{r}
+#How many of the time sequenced and recorded sequence tours match? 
+
+length(unique(work_tvd_data$tourid))#6120 tours 
+
+sum(work_tvd_data$seq_nr == work_tvd_data$sequence_time)#9449= 24.41% of all observations 
+
+#How many of the recorded tours actually start in a listed source farm? 
+length(which(work_tvd_data$seq_nr == 1 & work_tvd_data$class=="source")) #5002 of the farms where the tours start are listed in the original dataset as source farms = only 81.73% of farms where the tours begin are source farms 
+
+length(which(work_tvd_data$seq_nr == 1 & work_tvd_data$class=="destination"))#5042 = 
+
+length(which(work_tvd_data$seq_nr == 1))#10044
+
+#How many tours have more than 1 start listed per tour? 
+length(which(work_tvd_data$seq_nr == 1 & duplicated(work_tvd_data[,1:10]))) #18
+
+```
+
+```{r}
+work_tvd_data2 <- work_tvd_data #backup
+
+work_tvd_data$farm_status <- work_tvd_data$production_type
+
+work_tvd_data<- work_tvd_data %>% 
+  ungroup() %>% 
+  group_by(day_of_year,tourid) %>% 
+  arrange(day_of_year,tourid,farm_status) %>% 
+  mutate(sequence_status_timebased = row_number())
+
+work_tvd_data <- work_tvd_data%>%
+  group_by(tourid,TVD,time) %>% mutate(across(starts_with('sequence_status_timebased'), ~min(.)))
+
+#How many matches are there between seq_status and seq_time | seq_nr
+sum(work_tvd_data$seq_nr == work_tvd_data$sequence_status_timebased)#8543= 22.07% of all observations 
+
+sum(work_tvd_data$sequence_time == work_tvd_data$sequence_status_timebased)#22325= 57.66% of all observations 
+
+work_tvd_data2 <- work_tvd_data #backup 2
+
+```
+
+##How many of our workable tours are deterministic = can be defined
+solely with the status of visiting farms##
+
+```{r}
+working_data <- work_tvd_data %>% 
+  ungroup() %>%
+  select(day_of_year,tourid,TVD, farm_status,destination,longitude,latitude,n_pigs,class,sequence_time, sequence_status_timebased) %>%
+  group_by(day_of_year,tourid)
+
+working_data <- working_data %>% ungroup() %>% group_by(day_of_year,tourid,TVD,farm_status) %>% mutate(dupes_TVD = n()) 
+summary(working_data$dupes_TVD)
+
+#Remove deterministic tours = those that have no dupes ####
+
+working_data<- working_data %>% 
+  ungroup() %>% 
+  group_by(day_of_year,tourid) %>% 
+  arrange(day_of_year,tourid,farm_status) %>% 
+  mutate(sequence_status_unbiased = row_number()) 
+  
+working_data <- working_data%>%
+  group_by(tourid,farm_status) %>% mutate(across(starts_with('sequence_status_unbiased'), ~min(.))) #we now have a variable that details the last farm visited, the farms competing for the same positions in the tour 
+
+working_data <- working_data%>%
+  group_by(day_of_year,tourid,class) %>% 
+  arrange(day_of_year,tourid,farm_status) %>% 
+  mutate(sequence_status_class = row_number())
+
+working_data <- working_data%>%
+  ungroup() %>% 
+  group_by(day_of_year,tourid,TVD) %>% mutate(across(starts_with('sequence_status_class'), ~min(.))) #now we will have the sequence based on the status of the farms and the class (source or destination)
+
+#IDENTIFY THE TOURS THAT ARE DETERMINISTIC ####
+
+working_data <- working_data %>% ungroup() %>% group_by(day_of_year,tourid,TVD,sequence_status_class) %>% mutate(dupes = n())
+
+uniqueSequenceOrder <- sort(unique(working_data$sequence_status_unbiased)) #we know the maximum visited farms in a tour is 17 
+
+working_data$TVD <- as.character(working_data$TVD)
+
+#For filtering sake we will remove the duplicates of destinations and sources# 
+working_data_wo_dupes <- working_data %>% 
+  group_by(day_of_year,tourid) %>%
+  distinct(TVD,.keep_all=TRUE)
+
+determ_tours <- working_data_wo_dupes %>% 
+  ungroup() %>% 
+  group_by(day_of_year,tourid) %>% #making sure the observations are ordered based on the sequence 
+  filter((all(diff(match(sequence_status_unbiased,uniqueSequenceOrder))==1))) %>% 
+  arrange(day_of_year,tourid,farm_status)#if the values of the sequence are not consecutive (meaning there are competing farms for tour visiting order) then the tour cannot be ordered solely based on the Farm_status of the integrating farms
+#by using the function match we can ignore duplicated observations otherwise the function to identify consequential values wont work (e.g.T-004949). THIS ONLY FILTERS THE TOURS THAT DO NOT HAVE DUPLICATED SOURCES/DESTINATIONS 
+
+length(unique(determ_tours$tourid)) #656 tours are deterministic = 6.29% of all tours 
+
+#Remove the deterministic tours from the working dataset 
+complex_tours <- anti_join(working_data,determ_tours, by = c("tourid" = "tourid"))
+
+length(unique(complex_tours$tourid)) #5464 tours that need more work, aka complex = 52.38% of all tours 
+
+
+```
+
+##Brief notes on the sequences designations: sequence_status_timebased =
+The sequence based on the status of the farms and the time they were
+visited. Dependant on loading and unloading times
+
+sequence_status_unbiased = sequence solely based on the farm_status
+
+sequence_status_class = sequence based solely on the farm_status but
+also groupped per class (source\|destination)
+
+*We have now organized our data into single transport tours,
+deterministic tours and complex tours. We have been able to subset from
+the original 2019 tour dataset all the tours asides from the complex
+tours. We now have some extra work to do on the complex tours in order
+to determine its sequence##
+
+```{r}
+#Tidy up#### 
+
+complex_tours$dupes <- NULL
+
+complex_tours$Points <- paste(complex_tours$longitude, complex_tours$latitude, sep = " , ")
+library(geosphere)
+
+#Again it makes sense to remove duplicates from the complex tours as well. 
+
+complex_tours_backup_with_dupes <- complex_tours
+
+complex_tours <- complex_tours %>%
+  group_by(day_of_year,tourid) %>%
+  distinct(TVD,.keep_all=TRUE)
+
+#Therefore let us re_code a dupes_status variable for us to know how many times a certain status repeats 
+complex_tours <- complex_tours %>% ungroup() %>% group_by(day_of_year,tourid,farm_status) %>% mutate(dupes_status = n()) 
+
+complex_tours <- complex_tours[,c("day_of_year","tourid","TVD","farm_status","destination","longitude", "latitude","n_pigs","class","sequence_status_unbiased","dupes_status","sequence_status_class","Points","sequence_time","sequence_status_timebased","dupes_TVD")] #order variables to make it easier 
+
+
+#Every time there is a distinct value in sequence_status_unbiased , the min distinct value should be defined as center (independent of being a source or destination)
+complex_tours$dupes_status <- as.numeric(complex_tours$dupes_status)
+complex_tours$sequence_status_unbiased <- as.numeric(complex_tours$sequence_status_unbiased)
+
+complex_tours <- complex_tours %>% 
+  ungroup() %>% 
+  group_by(day_of_year,tourid) %>% 
+  mutate(centers = case_when(!duplicated(sequence_status_unbiased) & dupes_status==1 ~ Points)) %>%
+  mutate(RealCenter = row_number(centers) == 1)#define the center for distance calculation =  non duplicated observations in sequence_status_unbiased but it is not the first one and we need to only have the first non duplicated observation to be considered as center (check e.g. 14757)
+
+complex_tours <- complex_tours %>% 
+  group_by(day_of_year,tourid) %>% 
+  mutate(center= case_when(!centers=="NA" & RealCenter==TRUE ~ Points))
+
+#Eliminate the extra variables created to determine the correct center for our distance calculations 
+complex_tours <- complex_tours %>% select (-c(RealCenter, centers))
+
+#Edges are all that have dupes in dupes_status 
+complex_tours <- complex_tours %>% 
+  ungroup() %>% 
+  group_by(day_of_year,tourid) %>% 
+  mutate(edges = case_when(dupes_status>1  ~ Points))
+
+#Calculate distances from the center to the edges####
+#Calculate the distance from the center to all the others (edges), per group
+library(tidyr)
+library(geosphere)
+library(sp)
+
+complex_tours <- complex_tours %>% 
+  group_by(day_of_year,tourid) %>% 
+  mutate(center_lon = case_when(is.na(center)==FALSE ~ longitude)) %>% 
+  mutate(center_lat = case_when(is.na(center)==FALSE ~ latitude)) #we extracted the coordinates for each central point 
+
+complex_tours <- complex_tours %>% 
+  group_by(day_of_year,tourid) %>% 
+  mutate(edges_lon = case_when(is.na(edges)==FALSE ~ longitude)) %>% 
+  mutate(edges_lat = case_when(is.na(edges)==FALSE ~ latitude)) #we extracted the coordinates for each edge point
+
+complex_tours <- complex_tours %>% 
+  ungroup() %>% 
+  group_by(day_of_year,tourid) %>% 
+  fill(center,.direction = "down") %>% 
+  fill(center,.direction = "up") %>% 
+  fill(center_lon,.direction = "down") %>% 
+  fill(center_lon,.direction = "up") %>% 
+  fill(center_lat,.direction = "down") %>% 
+  fill(center_lat,.direction = "up")#this code chunk ensures that the center of each edges is easily identifiable and makes the calculations of distance between center-edges possible 
+
+complex_tours$center_lon[is.na(complex_tours$center_lon)] <- 0
+complex_tours$center_lat[is.na(complex_tours$center_lat)] <- 0
+
+complex_tours$edges_lon[is.na(complex_tours$edges_lon)] <- 0
+complex_tours$edges_lat[is.na(complex_tours$edges_lat)] <- 0
+
+#Create the datasets with the coordinates for the distance calculations####
+#Now I am subsetting the dataset to keep only the visits that have a center to make it easier to calculate the distances 
+centeronly <- complex_tours %>%
+  group_by(day_of_year,tourid) %>% 
+  filter(is.na(center)==FALSE & center_lon>0 & center_lat >0 & edges_lon>0 & edges_lat>0) #we are only keeping the observations that have center and edges and we need to decide the order 
+
+centeronly <- centeronly %>% 
+  group_by(day_of_year,tourid) %>%
+  filter(center_lon>0 & center_lat >0 & edges_lon>0 & edges_lat>0)
+
+center <- centeronly %>% 
+  ungroup() %>% 
+  group_by(day_of_year,tourid) %>% #just to make absolutely sure the order is not lost 
+  select(center_lon,center_lat)
+
+center$doy<- NULL
+center$BeraterNAdr_ID <- NULL
+
+edges <- centeronly%>%
+  ungroup() %>% 
+  group_by(day_of_year,tourid) %>% #just to make absolutely sure the order is not lost 
+  select(edges_lon,edges_lat)
+
+edges$doy<- NULL
+edges$BeraterNAdr_ID <- NULL
+
+#Calculate distances 
+center$lon <- center$center_lon
+center$lat <- center$center_lat
+
+center$center_lon <- NULL
+center$center_lat <- NULL
+
+edges$lon <- edges$edges_lon
+edges$lat <- edges$edges_lat
+
+edges$edges_lon <- NULL
+edges$edges_lat <- NULL
+
+center <- SpatialPoints(center[c("lon", "lat")]) #WGS84
+edges <- SpatialPoints(edges[c("lon", "lat")]) #WGS84
+  
+crs.geo<-CRS("+init=epsg:32632") #info from epsg.io 
+
+proj4string(center) <-crs.geo #define projection
+proj4string(edges) <-crs.geo
+
+library(geosphere)
+#get the coordinates of gps and centroid 
+pointCenters <- center@coords
+pointedges<-edges@coords
+#prepare a vector which will contain the minimum distance for each gps point
+res_cent_edges <-numeric(nrow(pointedges))
+#get the min distances
+for (i in 1:length(res_cent_edges)) res_cent_edges[i]<- min(distHaversine(pointedges[i,,drop=FALSE],pointCenters)) #distance in meters
+
+length(res_cent_edges)#check that the number of rows in the same as the original dataset
+#to add the distances
+res_cent_edges <- as.vector(res_cent_edges)
+dist_cent_edges <- res_cent_edges
+summary(dist_cent_edges)
+centeronly$dist_cent_edges <- dist_cent_edges #given in meters
+
+#Need to now bind this column to the original dataframe = complex_tours 
+complex_tours$dist_cent_edges <- NA #to rbind later
+
+centeronly <- centeronly %>% 
+  group_by(day_of_year,tourid) %>% 
+  select(day_of_year, tourid, TVD, dist_cent_edges)
+
+complex_tours <- merge(complex_tours,centeronly , by=c("day_of_year","tourid","TVD"), all=TRUE) # NA's match
+
+complex_tours$dist_cent_edges.x <- NULL
+
+```
+##Make sure sources come before destination##
+
+```{r}
+#Since we have destination farms with the same or higher status than the source farms in the same tour we want to make sure that the sources come before the destinations 
+complex_tours <- complex_tours %>% 
+  group_by(day_of_year,tourid) %>%
+  mutate(classvalue = case_when(class == "source" ~ 1 , 
+                                TRUE ~ 2))
+
+#Arrange(farm_status,distance) = so that priority is still given to the status of the farm and only if the status is the same should the distance to the center be considered 
+
+complex_tours <- complex_tours %>% 
+  ungroup() %>% 
+  group_by(day_of_year,tourid) %>% 
+  arrange(day_of_year,tourid,farm_status,classvalue,dist_cent_edges.y)  %>% 
+  mutate(sequence_status_dist = row_number())
+```
+
+##Determine how much compatibility there is between the recorded
+sequence and the our pre-determined rules that the tours abide by the
+status of the farms rules + shortest distance##
+
+```{r}
+#Return dataset to its original format (but keeping it on a farm basis format, not transport basis) = merge determ datatset + complex_tours; Single farm tours do not interest us! 
+
+complex_tours_final <- complex_tours#backup
+
+#tidy up the complex tours dataset & determ datatset #### 
+complex_tours <- complex_tours %>% select (-c(center_lat, center_lon,edges_lon,edges_lat))
+
+names(complex_tours)
+names(determ_tours)
+
+determ_tours$center <- NA 
+determ_tours$edges <- NA 
+determ_tours$dupes_status <- NA 
+determ_tours$dist_cent_edges.y <- NA 
+determ_tours$sequence_status_dist <- NA 
+
+complex_tours <- complex_tours %>% 
+  ungroup() %>% 
+  group_by(day_of_year,tourid) %>% 
+  arrange(day_of_year,tourid,farm_status) 
+
+determ_tours <- determ_tours %>% 
+  ungroup() %>% 
+  group_by(day_of_year,tourid) %>% 
+  arrange(day_of_year,tourid,farm_status) 
+
+final1 <- rbind(complex_tours, determ_tours)
+
+#Save as CSV file 
+
+write.csv(final1,"G:\\VPHI\\Epi\\Projects\\100_PigNetworkModeling_SNF (Duerr)\\DatasetsAnalysis\\Tour_prediction\\Laura\\Test_dataset.csv", row.names = FALSE) #work pc 
+
+```
+##Check final tour dataset##
+```{r}
+#Total of final tour ID has to be 6120 
+length(unique(final1$tourid)) #check OK = 6120
+
+
+#How many matches are there between seq_status and sequence_status_dist
+#Final dataset without NA
+final <- final1 %>% 
+  ungroup() %>% 
+  group_by(day_of_year,tourid) %>% 
+  arrange(day_of_year,tourid,farm_status,classvalue,dist_cent_edges.y) %>% 
+  mutate(sequence_status_dist = row_number())
+
+
+sum(final$sequence_status_unbiased == final$sequence_status_dist)#15198 = 53.83% of all observations in the dataset
+
+```
+##Match calculation##
+```{r}
+#MACTHES BETWEEN SEQUENCE TIME AND SEQUENCE STATUS 
+#How many matches are there between seq_status and seq_time | seq_nr= There are NA's from the deterministic tours
+#Final dataset without NA
+final <- final1 %>% 
+  ungroup() %>% 
+  group_by(day_of_year,tourid) %>% 
+  arrange(day_of_year,tourid,farm_status,classvalue,dist_cent_edges.y) %>% 
+  mutate(sequence_status_dist = row_number())
+
+
+sum(final$sequence_time == final$sequence_status_unbiased)#9598 = 33.99%
+sum(final$sequence_time == final$sequence_status_dist)#9520  =33.72 %
+
+sum(final$sequence_status_timebased == final$sequence_status_unbiased)#15705 = 55.62%
+sum(final$sequence_status_timebased == final$sequence_status_dist)#14973= 53.03%
+```
+
+```{r}
+#Let's create a dataset that is groupped based on the number of transports each tourID has 
+n_tours <- aggregate(x = final$sequence_status_dist,                
+                    by = list(final$tourid),              
+                    FUN = max)
+summary(n_tours$x)
+```
+
+##Calculate sequence change##
+```{r}
+#Calculate the change in the order of the sequences = WE NO LONGER HAVE SEQUENCE_TIME so I will change it to sequence_status_unbiased 
+
+order <- final %>% 
+  group_by(day_of_year,tourid) %>%
+  select(day_of_year,tourid,sequence_status_unbiased,sequence_status_dist,TVD,destination,class)
+
+order <- order %>% 
+  group_by(day_of_year,tourid) %>% #the final dataset is arranged based on the sequence_status_dist we have to calculate the difference for the sequence_status_unbiased
+  mutate(order_diff = sequence_status_unbiased - lag(sequence_status_unbiased))
+
+length(unique(order$tourid)) #6120
+
+#To calculate the percentage of change in the order between the time based sequence and the sequence we created (sequence_status_dist) we have the sum the values in variable order_diff=1 (=the ones that maintained their relative position) and divide by the maximum vale of the sequence 
+
+
+ 
+#Want to create a dataset with the TOUR ID + MAX NUMBER OF TRANSPORTS IN THE TOUR + SUM WHEN (ORDER_DIFF==1)    
+order_tours  <- aggregate(x = order$sequence_status_dist,                
+                    by = list(order$tourid),              
+                    FUN = max) #x is the maximum number of transports per tourID 
+
+order$order_diff <- as.numeric(order$order_diff)
+
+f4 <- order %>%
+  group_by(tourid) %>%
+  rowwise() %>%
+  mutate(sums = sum(ifelse(order_diff==1,order_diff, NA))) 
+
+f4 <- f4 %>% 
+  group_by(tourid) %>% 
+  filter(sums == 1) %>% 
+  mutate(total = sum(sums)) #we now have duplicates which we have to remove 
+
+f4 <- f4 %>% 
+  group_by(tourid) %>% 
+  distinct(day_of_year,tourid,total)
+
+length(unique(order_tours$Group.1))#6120
+length(unique(f4$tourid))#2665
+
+#merge f4 with order_tours based on the tourID that have kept at least one of the sequence orders 
+order_tours$tourid <- order_tours$Group.1
+order_tours$max_transp <- order_tours$x
+
+order_tours$Group.1 <- NULL 
+order_tours$x <- NULL
+
+f4$max_transp <- NA
+order_tours$day_of_year <- NA
+order_tours$total <- NA
+
+f4 <- f4[,c("day_of_year","tourid","max_transp","total")]
+order_tours <- order_tours[,c("day_of_year","tourid","max_transp","total")]
+ 
+order_fin <- merge(order_tours,f4, by="tourid")
+
+order_fin$max_transp.y <- NULL 
+order_fin$day_of_year.x<- NULL
+order_fin$total.x <- NULL
+
+order_fin <- order_fin %>% 
+  group_by(tourid) %>% #tourID 
+  mutate(n_kept_order =(total.y*100)/(max_transp.x-1)) #total number of transports minus 1 because if we have 23 transports it means we have 22 ordered sequence values even when the sequence is perfect (1-2-3-4 there are only 3 diff to be calculated between the 4 numbers)
+
+mean(order_fin$n_kept_order) #48.54648
+median(order_fin$n_kept_order) #33.33
+max(order_fin$n_kept_order) #100
+min(order_fin$n_kept_order) #7.692308
+
+#order <- order %>% 
+  #group_by(day_of_year,tourid) %>%
+  #mutate(total_transports = max(sequence_status_dist))#create a column that is the total number of transports within each tour
+  
+#order_tour <- order %>% 
+  #group_by(day_of_year,tourid) %>%
+  #filter(order_diff==1) %>% #only keep the values that are ones
+  #mutate(count = sum(order_diff)) %>% #sum the 1 values 
+  #mutate(per =  100 *max(count)/ (total_transports-1)) %>% #total number of transports minus 1 because if we have 17 transports it means we have 16 ordered sequence values even when the sequence is perfect (1-2-3-4 there are only 3 diff to be calculated between the 4 numbers)
+  #ungroup
+
+
+#How many tours had a change in their order = meaning the tours that did not have a single 1 (0% match) and the tours that are not 100% matches 
+
+#ALL THE TOURS THAT WENT TO BE PART OF THE F4 HAVE TO HAVE AT LEAST ONE 1 
+length(unique(f4$tourid)) #2665 (meaning 100% matches and not perfect matches)
+
+6120 - 2665 #3455 are the tours that had no matches = did not kept any of the sequence 
+
+no_perfect_match <- order_fin %>% 
+  group_by(tourid) %>%
+  filter(n_kept_order<100)
+
+length(unique(no_perfect_match$tourid))#2009
+
+length(unique(order$tourid)) #6120
+length(unique(order_tours$tourid))#6120
+length(unique(order_fin$tourid)) #2665 = 43.55%
+6120 - 2665 #3455 are the tours that had no matches = did not kept any of the sequence = 56.45%
+
+2665-2009 #656 perfect matches tours = 10.72%
+
+```
+
+#END#
+
